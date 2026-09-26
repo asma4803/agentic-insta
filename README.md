@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frame & Words
 
-## Getting Started
+Turn a photograph into a story — an AI Instagram caption agent.
 
-First, run the development server:
+## Setup
+
+```bash
+npm install
+cp .env.example .env.local
+```
+
+Edit `.env.local` with either NVIDIA (recommended free NIM models) or OpenAI:
+
+```
+# NVIDIA NIM (OpenAI-compatible). Preferred when NVIDIA_API_KEY is set.
+NVIDIA_API_KEY=
+NVIDIA_MODEL=nvidia/nemotron-3.5-bolt-e4b
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+
+# OpenAI fallback — used only if NVIDIA_API_KEY is unset.
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+Set **`NVIDIA_API_KEY`** or **`OPENAI_API_KEY`** (at least one). If both are set, **NVIDIA wins**. Model and base URL vars are optional. Use a **vision-capable** model (this app uploads a photo). `nvidia/nemotron-3.5-bolt-e4b` works on the public NIM endpoint. `meta/llama-3.2-11b-vision-instruct` is still listed, but calls to it often return 404 because that hosted model is not deployed for the key.
+
+## Run
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open [http://localhost:3000](http://localhost:3000).

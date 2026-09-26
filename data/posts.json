@@ -1,0 +1,124 @@
+{
+  "posts": [
+    {
+      "id": "3a4199f4-34e0-41d5-a578-101b135efc4c",
+      "createdAt": "2026-11-05T10:34:12.407Z",
+      "updatedAt": "2026-11-05T10:34:12.407Z",
+      "status": "draft",
+      "draft": {
+        "pageHandle": "frameandwords",
+        "displayName": "Frame & Words",
+        "mood": "inspirational",
+        "format": "single",
+        "theme": "friendship",
+        "topicTitle": "Friendship",
+        "formatReason": "The image is specific and evokes a quiet shared moment.",
+        "caption": "Two cups. One table. Quiet moments.",
+        "hashtags": [
+          "#slowliving",
+          "#friendship",
+          "#everydaymoments",
+          "#simplethings",
+          "#frameandwords"
+        ],
+        "slides": [
+          {
+            "imageId": "two-cups",
+            "text": "Dark coffee. Shared quiet."
+          }
+        ],
+        "issues": [],
+        "trace": [
+          {
+            "tool": "search_topics",
+            "summary": "Topics for inspirational: Friendship, Quiet morning, Small wins."
+          },
+          {
+            "tool": "search_images",
+            "summary": "Images for Friendship: two-cups. Fewer than three images share this topic, so this must be a single post unless you switch topics."
+          },
+          {
+            "tool": "inspect_image",
+            "summary": "Inspected two-cups. Visible: two coffee cups, a small wooden table."
+          },
+          {
+            "tool": "draft_post",
+            "summary": "Drafted a single post on Friendship. Call critique_post."
+          },
+          {
+            "tool": "critique_post",
+            "summary": "Critique passed. You may finish."
+          },
+          {
+            "tool": "finish",
+            "summary": "Finished a single draft for @frameandwords."
+          }
+        ]
+      }
+    },
+    {
+      "id": "c22e2bd8-0bb3-461e-8f4f-6c0528352dec",
+      "createdAt": "2026-11-05T10:35:24.762Z",
+      "updatedAt": "2026-11-05T10:35:24.762Z",
+      "status": "draft",
+      "draft": {
+        "pageHandle": "frameandwords",
+        "displayName": "Frame & Words",
+        "mood": "reflective",
+        "format": "single",
+        "theme": "city-walk",
+        "topicTitle": "City walk",
+        "formatReason": "revised after critique",
+        "caption": "A quiet stretch. Dusk light on damp stone.",
+        "hashtags": [
+          "#quietmoments",
+          "#citydetails",
+          "#dusklight",
+          "#slowliving",
+          "#frameandwords"
+        ],
+        "slides": [
+          {
+            "imageId": "alley-lamps",
+            "text": "Narrow alley. Warm lamp light."
+          }
+        ],
+        "issues": [],
+        "trace": [
+          {
+            "tool": "search_topics",
+            "summary": "Topics for reflective: City walk, Quiet morning."
+          },
+          {
+            "tool": "search_images",
+            "summary": "Images for City walk: alley-lamps, dusk-crossing, wet-pavement. Three or more images share this topic, so a carousel is possible."
+          },
+          {
+            "tool": "inspect_image",
+            "summary": "Inspected alley-lamps. Visible: narrow alley, warm lamp, damp stone, stone wall, paved ground."
+          },
+          {
+            "tool": "draft_post",
+            "summary": "Drafted a single post on City walk. Call critique_post."
+          },
+          {
+            "tool": "critique_post",
+            "summary": "Critique failed: single image needs one line Call draft_post once more to revise."
+          },
+          {
+            "tool": "draft_post",
+            "summary": "Drafted a single post on City walk. Call critique_post."
+          },
+          {
+            "tool": "critique_post",
+            "summary": "Critique passed. You may finish."
+          },
+          {
+            "tool": "finish",
+            "summary": "Finished a single draft for @frameandwords."
+          }
+        ]
+      }
+    }
+  ]
+}
