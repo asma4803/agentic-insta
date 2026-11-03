@@ -12,6 +12,7 @@ import {
 import {
   AIProviderError,
   getAIProvider,
+  trackModelCall,
   type AIProvider,
 } from "@/lib/ai/provider";
 import {
@@ -30,6 +31,7 @@ import {
 } from "@/lib/validation";
 import {
   AgentError,
+  type CallEvent,
   type ImageInspection,
   type ImageRecord,
   type InstagramPage,
@@ -43,6 +45,63 @@ import {
 
 const MAX_STEPS = 8;
 const FILES_DIR = path.join(process.cwd(), "content", "library", "images", "files");
+
+type Emit = (event: CallEvent) => void;
+
+let localSeq = 0;
+
+function clip(text: string): string {
+  const oneLine = text.replace(/\s+/g, " ").trim();
+  if (oneLine.length <= 180) return oneLine;
+  return `${oneLine.slice(0, 179)}…`;
+}
+
+function runLocal(
+  emit: Emit,
+  purpose: string,
+  inputSummary: string,
+  work: () => string,
+): string {
+  const id = `local-${++localSeq}`;
+  const started = performance.now();
+  emit({
+    type: "call",
+    id,
+    status: "in_progress",
+    model: "local",
+    purpose,
+    inputSummary,
+  });
+  try {
+    const output = work();
+    emit({
+      type: "call",
+      id,
+      status: "completed",
+      model: "local",
+      purpose,
+      inputSummary,
+      outputSummary: clip(output),
+      durationMs: Math.round(performance.now() - started),
+      usage: null,
+    });
+    return output;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The library step failed.";
+    emit({
+      type: "call",
+      id,
+      status: "failed",
+      model: "local",
+      purpose,
+      inputSummary,
+      outputSummary: message,
+      durationMs: Math.round(performance.now() - started),
+      usage: null,
+    });
+    throw error;
+  }
+}
 
 interface Session {
   page: InstagramPage;
@@ -75,23 +134,37 @@ function mapProviderError(error: unknown): AgentError {
   );
 }
 
-async function askJson(provider: AIProvider, prompt: string): Promise<unknown> {
-  const raw = await provider.generateText({ prompt, json: true });
+async function askJson(
+  provider: AIProvider,
+  prompt: string,
+  meta: { purpose: string; inputSummary: string; emit: Emit },
+): Promise<unknown> {
+  const completion = await trackModelCall(meta, () =>
+    provider.generateText({ prompt, json: true }),
+  );
   try {
-    return parseJsonObject(raw);
+    return parseJsonObject(completion.content);
   } catch (error) {
     if (!(error instanceof Error) || error.message !== "malformed_json") {
       throw error;
     }
-    const repaired = await provider.generateText({
-      json: true,
-      prompt: [
-        "Return one JSON object and nothing else.",
-        "Previous response:",
-        raw.slice(0, 4000),
-      ].join("\n"),
-    });
-    return parseJsonObject(repaired);
+    const repaired = await trackModelCall(
+      {
+        purpose: "Repair malformed JSON",
+        inputSummary: "The previous response was not valid JSON.",
+        emit: meta.emit,
+      },
+      () =>
+        provider.generateText({
+          json: true,
+          prompt: [
+            "Return one JSON object and nothing else.",
+            "Previous response:",
+            completion.content.slice(0, 4000),
+          ].join("\n"),
+        }),
+    );
+    return parseJsonObject(repaired.content);
   }
 }
 
@@ -197,7 +270,7 @@ function buildChooserPrompt(session: Session): string {
   ].join("\n");
 }
 
-async function searchTopics(session: Session): Promise<string> {
+function searchTopics(session: Session): string {
   session.topicHits = rankTopics(session.topics, session.page, session.mood, session.note);
   if (session.topicHits.length === 0) {
     return `No topics on @${session.page.handle} match the mood ${session.mood}.`;
@@ -208,7 +281,7 @@ async function searchTopics(session: Session): Promise<string> {
   return `Topics for ${session.mood}: ${session.topicHits.map((topic) => topic.title).join(", ")}.\n${lines.join("\n")}`;
 }
 
-async function searchImages(session: Session, args: Record<string, unknown>): Promise<string> {
+function searchImages(session: Session, args: Record<string, unknown>): string {
   const topicId = typeof args.topicId === "string" ? args.topicId : "";
   const topic = session.topicHits?.find((item) => item.id === topicId);
   if (!topic) {
@@ -233,6 +306,7 @@ async function inspectImage(
   session: Session,
   provider: AIProvider,
   args: Record<string, unknown>,
+  emit: Emit,
 ): Promise<string> {
   const imageId = typeof args.imageId === "string" ? args.imageId : "";
   const record = session.imageHits?.find((image) => image.id === imageId);
@@ -240,21 +314,29 @@ async function inspectImage(
     return "imageId must be one of the images returned by search_images.";
   }
 
-  const inspectedRaw = await provider.analyzeImage({
-    imageDataUrl: imageFileUrl(record),
-    prompt: [
-      "Compare this photograph with the catalog description.",
-      "List only what is visible. Do not invent a place, brand, or person.",
-      `Catalog description: ${record.description}`,
-      'Return JSON with matches_description (boolean), visible_details (array of strings), and notes (string).',
-    ].join("\n"),
-    jsonSchemaHint:
-      '{"matches_description":true,"visible_details":["string"],"notes":"string"}',
-  });
+  const inspected = await trackModelCall(
+    {
+      purpose: "Analyze an image",
+      inputSummary: `Image ${record.id}. Catalog: ${clip(record.description)}`,
+      emit,
+    },
+    () =>
+      provider.analyzeImage({
+        imageDataUrl: imageFileUrl(record),
+        prompt: [
+          "Compare this photograph with the catalog description.",
+          "List only what is visible. Do not invent a place, brand, or person.",
+          `Catalog description: ${record.description}`,
+          'Return JSON with matches_description (boolean), visible_details (array of strings), and notes (string).',
+        ].join("\n"),
+        jsonSchemaHint:
+          '{"matches_description":true,"visible_details":["string"],"notes":"string"}',
+      }),
+  );
 
   let inspection: ReturnType<typeof validateImageInspection>;
   try {
-    inspection = validateImageInspection(parseJsonObject(inspectedRaw));
+    inspection = validateImageInspection(parseJsonObject(inspected.content));
   } catch {
     return `Inspection of ${record.id} was unreadable. Call inspect_image again.`;
   }
@@ -325,6 +407,7 @@ async function draftPost(
   session: Session,
   provider: AIProvider,
   args: Record<string, unknown>,
+  emit: Emit,
 ): Promise<string> {
   const topicId = typeof args.topicId === "string" ? args.topicId : "";
   const topic = session.topicHits?.find((item) => item.id === topicId);
@@ -357,6 +440,11 @@ async function draftPost(
         draft: { format: resolved.format, formatReason, inspections },
         previousIssues,
       }),
+      {
+        purpose: previousIssues?.length ? "Revise the post" : "Generate the post",
+        inputSummary: `${topic.title}, ${resolved.format}, mood ${session.mood}.`,
+        emit,
+      },
     );
   } catch (error) {
     if (error instanceof Error && (error.message.startsWith("invalid_") || error.message === "malformed_json")) {
@@ -386,7 +474,11 @@ async function draftPost(
   return `Drafted a ${resolved.format} post on ${topic.title}. Call critique_post.`;
 }
 
-async function critiquePost(session: Session, provider: AIProvider): Promise<{ summary: string; stop: boolean }> {
+async function critiquePost(
+  session: Session,
+  provider: AIProvider,
+  emit: Emit,
+): Promise<{ summary: string; stop: boolean }> {
   if (!session.draft) {
     return { summary: "Call draft_post before critique_post.", stop: false };
   }
@@ -403,6 +495,11 @@ async function critiquePost(session: Session, provider: AIProvider): Promise<{ s
         mood: session.mood,
         draft: session.draft,
       }),
+      {
+        purpose: "Critique the draft",
+        inputSummary: `${session.draft.topic.title}: ${clip(session.draft.caption)}`,
+        emit,
+      },
     );
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
       const record = raw as Record<string, unknown>;
@@ -444,6 +541,7 @@ async function critiquePost(session: Session, provider: AIProvider): Promise<{ s
 export async function runPostAgent(
   input: { mood: Mood; format: PostFormatRequest; note: string },
   provider: AIProvider = getAIProvider(),
+  emit: Emit = () => {},
 ): Promise<PostDraft> {
   const page = loadInstagramPage();
   const topics = loadTopics();
@@ -473,7 +571,15 @@ export async function runPostAgent(
     for (let step = 0; step < MAX_STEPS; step += 1) {
       let call: ReturnType<typeof validateToolCall>;
       try {
-        call = validateToolCall(await askJson(provider, buildChooserPrompt(session)));
+        call = validateToolCall(
+          await askJson(provider, buildChooserPrompt(session), {
+            purpose: "Choose the next step",
+            inputSummary: session.lastObservation
+              ? `Last result: ${clip(session.lastObservation)}`
+              : `Mood ${input.mood}, format ${input.format}.`,
+            emit,
+          }),
+        );
       } catch (error) {
         if (error instanceof AIProviderError) throw error;
         session.lastObservation = "Return one JSON tool call with tool and arguments.";
@@ -498,15 +604,26 @@ export async function runPostAgent(
       let stop = false;
 
       if (call.tool === "search_topics") {
-        summary = await searchTopics(session);
+        summary = runLocal(
+          emit,
+          "Select a caption topic",
+          `Mood ${session.mood}${session.note ? `. Note: ${clip(session.note)}` : "."}`,
+          () => searchTopics(session),
+        );
       } else if (call.tool === "search_images") {
-        summary = await searchImages(session, call.arguments);
+        const topicId = typeof call.arguments.topicId === "string" ? call.arguments.topicId : "";
+        summary = runLocal(
+          emit,
+          "Match images to the mood",
+          `Topic ${topicId || "unknown"}, mood ${session.mood}.`,
+          () => searchImages(session, call.arguments),
+        );
       } else if (call.tool === "inspect_image") {
-        summary = await inspectImage(session, provider, call.arguments);
+        summary = await inspectImage(session, provider, call.arguments, emit);
       } else if (call.tool === "draft_post") {
-        summary = await draftPost(session, provider, call.arguments);
+        summary = await draftPost(session, provider, call.arguments, emit);
       } else {
-        const critique = await critiquePost(session, provider);
+        const critique = await critiquePost(session, provider, emit);
         summary = critique.summary;
         stop = critique.stop;
       }

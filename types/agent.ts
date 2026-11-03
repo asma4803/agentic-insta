@@ -147,11 +147,78 @@ export interface PostDraft {
   trace: TraceStep[];
 }
 
+export const POST_STATUSES = [
+  "draft",
+  "approved",
+  "publishing",
+  "published",
+  "failed",
+] as const;
+
+export type PostStatus = (typeof POST_STATUSES)[number];
+
+export interface StoredPost {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  status: PostStatus;
+  approvedAt?: string;
+  publishedAt?: string;
+  instagramMediaId?: string;
+  permalink?: string;
+  error?: string;
+  draft: PostDraft;
+  approvedSnapshot?: PostDraft;
+}
+
+export interface PostEdits {
+  caption: string;
+  hashtags: string[];
+  slides: SlideDraft[];
+}
+
+export interface InstagramQuota {
+  usage: number;
+  total: number;
+}
+
+export interface InstagramConnection {
+  ready: boolean;
+  missing: string[];
+  quota: InstagramQuota | null;
+  quotaError?: string;
+}
+
 export interface PageSummary {
   handle: string;
   displayName: string;
   niche: string;
 }
+
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export type CallStatus = "in_progress" | "completed" | "failed";
+
+export interface CallEvent {
+  type: "call";
+  id: string;
+  status: CallStatus;
+  model: string;
+  purpose: string;
+  inputSummary: string;
+  outputSummary?: string;
+  durationMs?: number;
+  usage?: TokenUsage | null;
+}
+
+export type DraftStreamEvent =
+  | CallEvent
+  | { type: "draft"; draft: PostDraft }
+  | { type: "error"; message: string };
 
 export class AgentError extends Error {
   readonly status: number;

@@ -42,5 +42,5 @@ export async function runVisualAnalyst(
     jsonSchemaHint: SCHEMA_HINT,
   });
 
-  return validateVisualAnalysis(parseJsonObject(raw));
+  return validateVisualAnalysis(parseJsonObject(raw.content));
 }

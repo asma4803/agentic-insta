@@ -118,10 +118,12 @@ export async function runCaptionAgent(
 
     // Stages 2 + 3 — strategy and captions in one text call
     const combinedPrompt = buildCombinedStrategyAndWriterPrompt(input, analysis);
-    const combinedRaw = await provider.generateText({
-      prompt: combinedPrompt,
-      json: true,
-    });
+    const combinedRaw = (
+      await provider.generateText({
+        prompt: combinedPrompt,
+        json: true,
+      })
+    ).content;
 
     let strategyAndCaptions: ReturnType<typeof validateStrategyAndCaptions>;
     try {
@@ -133,7 +135,8 @@ export async function runCaptionAgent(
       ) {
         throw error;
       }
-      const repaired = await provider.generateText({
+      const repaired = (
+        await provider.generateText({
         json: true,
         prompt: [
           "The previous response failed validation:",
@@ -146,7 +149,8 @@ export async function runCaptionAgent(
           "Previous response:",
           combinedRaw,
         ].join("\n"),
-      });
+      })
+      ).content;
       strategyAndCaptions = validateStrategyAndCaptions(parseJsonObject(repaired));
     }
 

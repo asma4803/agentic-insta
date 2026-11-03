@@ -158,7 +158,7 @@ export async function runQualityChecker(
     json: true,
   });
 
-  const revised = validateCaptionDraft(parseJsonObject(revisedRaw));
+  const revised = validateCaptionDraft(parseJsonObject(revisedRaw.content));
   const remaining = runQualityHeuristics(revised, input.style);
 
   // Prefer the revised draft if it improves or matches; otherwise keep best validated.
