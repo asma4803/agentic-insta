@@ -1,0 +1,12 @@
+{
+  "id": "quiet-morning",
+  "theme": "quiet-morning",
+  "title": "Quiet morning",
+  "idea": "A slow start at home: light, something warm to drink, and a room that is not in a hurry.",
+  "moods": ["reflective", "casual", "inspirational"],
+  "hooks": [
+    "The day has not asked for anything yet.",
+    "Steam, a window, and enough quiet to notice both."
+  ],
+  "avoid": ["hustle language", "naming a city", "claiming a routine the photo does not show"]
+}

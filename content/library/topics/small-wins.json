@@ -1,0 +1,12 @@
+{
+  "id": "small-wins",
+  "theme": "small-wins",
+  "title": "Small wins",
+  "idea": "Progress that fits on a desk: a blank page, a pen, and the decision to begin.",
+  "moods": ["motivational", "inspirational", "casual"],
+  "hooks": [
+    "Begin with one honest line.",
+    "The win is opening the page."
+  ],
+  "avoid": ["productivity slogans", "invented deadlines", "before-and-after claims"]
+}

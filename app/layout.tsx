@@ -15,7 +15,7 @@ const sans = Source_Sans_3({
 
 export const metadata: Metadata = {
   title: "Frame & Words",
-  description: "Turn a photograph into a story.",
+  description: "Draft an Instagram post for a configured page.",
 };
 
 export default function RootLayout({

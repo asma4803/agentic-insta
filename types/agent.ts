@@ -66,6 +66,93 @@ export interface AgentInput {
   direction: CaptionDirection;
 }
 
+export const MOODS = [
+  "inspirational",
+  "funny",
+  "reflective",
+  "motivational",
+  "casual",
+] as const;
+
+export type Mood = (typeof MOODS)[number];
+
+export const POST_FORMATS = ["single", "carousel", "auto"] as const;
+
+export type PostFormatRequest = (typeof POST_FORMATS)[number];
+
+export type ResolvedFormat = "single" | "carousel";
+
+export interface InstagramPage {
+  handle: string;
+  displayName: string;
+  niche: string;
+  audience: string;
+  voice: string;
+  language: string;
+  themes: string[];
+  captionLength: "short" | "medium";
+  alwaysHashtags: string[];
+  neverHashtags: string[];
+  avoid: string[];
+}
+
+export interface Topic {
+  id: string;
+  theme: string;
+  title: string;
+  idea: string;
+  moods: Mood[];
+  hooks: string[];
+  avoid: string[];
+}
+
+export interface ImageRecord {
+  id: string;
+  file: string;
+  description: string;
+  themes: string[];
+  moods: Mood[];
+  subjects: string[];
+}
+
+export interface ImageInspection {
+  imageId: string;
+  matchesDescription: boolean;
+  visibleDetails: string[];
+  notes: string;
+}
+
+export interface SlideDraft {
+  imageId: string;
+  text: string;
+}
+
+export interface TraceStep {
+  tool: string;
+  summary: string;
+}
+
+export interface PostDraft {
+  pageHandle: string;
+  displayName: string;
+  mood: Mood;
+  format: ResolvedFormat;
+  theme: string;
+  topicTitle: string;
+  formatReason: string;
+  caption: string;
+  hashtags: string[];
+  slides: SlideDraft[];
+  issues: string[];
+  trace: TraceStep[];
+}
+
+export interface PageSummary {
+  handle: string;
+  displayName: string;
+  niche: string;
+}
+
 export class AgentError extends Error {
   readonly status: number;
 

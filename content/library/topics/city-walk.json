@@ -1,0 +1,12 @@
+{
+  "id": "city-walk",
+  "theme": "city-walk",
+  "title": "City walk",
+  "idea": "A quiet stretch of street: wet pavement, dusk light, or a narrow lane with lamps.",
+  "moods": ["reflective", "casual"],
+  "hooks": [
+    "The street keeps a little of the rain.",
+    "Walk until the noise gets smaller."
+  ],
+  "avoid": ["naming a neighborhood", "inventing a destination", "crowd scenes that are not visible"]
+}
