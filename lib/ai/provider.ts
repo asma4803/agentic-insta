@@ -1,12 +1,37 @@
+import { AsyncLocalStorage } from "async_hooks";
+
+import type { CallEvent, TokenUsage } from "@/types/agent";
 import { extractJsonObjectText } from "@/lib/validation";
+
+export interface ModelCompletion {
+  content: string;
+  model: string;
+  durationMs: number;
+  usage: TokenUsage | null;
+}
+
+interface ModelCallScope {
+  purpose: string;
+  inputSummary: string;
+  emit: (event: CallEvent) => void;
+}
+
+const modelCallScope = new AsyncLocalStorage<ModelCallScope>();
+
+export function trackModelCall<T>(
+  scope: ModelCallScope,
+  fn: () => Promise<T>,
+): Promise<T> {
+  return modelCallScope.run(scope, fn);
+}
 
 export interface AIProvider {
   analyzeImage(input: {
     imageDataUrl: string;
     prompt: string;
     jsonSchemaHint?: string;
-  }): Promise<string>;
-  generateText(input: { prompt: string; json?: boolean }): Promise<string>;
+  }): Promise<ModelCompletion>;
+  generateText(input: { prompt: string; json?: boolean }): Promise<ModelCompletion>;
 }
 
 type ProviderKind = "nvidia" | "openai";
@@ -130,12 +155,72 @@ function mapHttpError(
   );
 }
 
+let callSeq = 0;
+
+function clipSummary(text: string): string {
+  const oneLine = text.replace(/\s+/g, " ").trim();
+  if (oneLine.length <= 180) return oneLine;
+  return `${oneLine.slice(0, 179)}…`;
+}
+
+function readUsage(value: unknown): TokenUsage | null {
+  if (typeof value !== "object" || value === null) return null;
+  const usage = value as Record<string, unknown>;
+  const prompt = usage.prompt_tokens;
+  const completion = usage.completion_tokens;
+  const total = usage.total_tokens;
+  if (
+    typeof prompt !== "number" ||
+    typeof completion !== "number" ||
+    typeof total !== "number"
+  ) {
+    return null;
+  }
+  return {
+    promptTokens: prompt,
+    completionTokens: completion,
+    totalTokens: total,
+  };
+}
+
+function emitCall(event: Omit<CallEvent, "type" | "purpose" | "inputSummary"> & {
+  purpose?: string;
+  inputSummary?: string;
+}): void {
+  const scope = modelCallScope.getStore();
+  if (!scope) return;
+  scope.emit({
+    type: "call",
+    purpose: event.purpose ?? scope.purpose,
+    inputSummary: event.inputSummary ?? scope.inputSummary,
+    ...event,
+  });
+}
+
 async function chatCompletion(
   body: Record<string, unknown>,
-): Promise<string> {
+): Promise<ModelCompletion> {
   const { apiKey, model, baseUrl, kind } = getConfig();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const started = performance.now();
+  const id = `call-${++callSeq}`;
+  let settled = false;
+
+  const fail = (message: string) => {
+    if (settled) return;
+    settled = true;
+    emitCall({
+      id,
+      status: "failed",
+      model,
+      outputSummary: message,
+      durationMs: Math.round(performance.now() - started),
+      usage: null,
+    });
+  };
+
+  emitCall({ id, status: "in_progress", model });
 
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -150,36 +235,60 @@ async function chatCompletion(
 
     if (!response.ok) {
       // Never leak raw provider payloads or keys to callers.
-      throw mapHttpError(response.status, kind);
+      const error = mapHttpError(response.status, kind);
+      fail(error.message);
+      throw error;
     }
 
     const data = (await response.json()) as {
       choices?: Array<{ message?: { content?: string | null } }>;
+      usage?: unknown;
     };
 
     const content = data.choices?.[0]?.message?.content?.trim();
     if (!content) {
-      throw new AIProviderError(
+      const error = new AIProviderError(
         "The AI service returned an empty response. Please try again.",
         "empty",
       );
+      fail(error.message);
+      throw error;
     }
 
-    return content;
+    const completion: ModelCompletion = {
+      content,
+      model,
+      durationMs: Math.round(performance.now() - started),
+      usage: readUsage(data.usage),
+    };
+    settled = true;
+    emitCall({
+      id,
+      status: "completed",
+      model,
+      outputSummary: clipSummary(content),
+      durationMs: completion.durationMs,
+      usage: completion.usage,
+    });
+    return completion;
   } catch (error) {
     if (error instanceof AIProviderError) {
       throw error;
     }
     if (error instanceof Error && error.name === "AbortError") {
-      throw new AIProviderError(
+      const timeoutError = new AIProviderError(
         "The request timed out. Please try again with a smaller image or simpler context.",
         "timeout",
       );
+      fail(timeoutError.message);
+      throw timeoutError;
     }
-    throw new AIProviderError(
+    const providerError = new AIProviderError(
       "Something went wrong talking to the AI service. Please try again.",
       "provider",
     );
+    fail(providerError.message);
+    throw providerError;
   } finally {
     clearTimeout(timeout);
   }
@@ -204,24 +313,37 @@ function jsonRepairPrompt(raw: string, schemaHint?: string): string {
  * llama-3.2 vision answers in prose even when asked for JSON.
  * Keep a valid object as-is; otherwise ask the same model (text-only) to format it.
  */
-async function ensureJsonObject(
+async function repairJsonObject(
   raw: string,
   schemaHint?: string,
-): Promise<string> {
-  const extracted = extractJsonObjectText(raw);
-  if (extracted) return extracted;
-
+): Promise<ModelCompletion> {
   const { maxTokensField } = getConfig();
-  const repaired = await chatCompletion({
-    temperature: 0,
-    [maxTokensField]: 2048,
-    messages: [
-      { role: "system", content: "You output valid JSON only." },
-      { role: "user", content: jsonRepairPrompt(raw, schemaHint) },
-    ],
-  });
+  const parent = modelCallScope.getStore();
+  const run = () =>
+    chatCompletion({
+      temperature: 0,
+      [maxTokensField]: 2048,
+      messages: [
+        { role: "system", content: "You output valid JSON only." },
+        { role: "user", content: jsonRepairPrompt(raw, schemaHint) },
+      ],
+    });
 
-  return extractJsonObjectText(repaired) ?? repaired;
+  const repaired = parent
+    ? await modelCallScope.run(
+        {
+          ...parent,
+          purpose: "Repair malformed JSON",
+          inputSummary: "The model response was not valid JSON.",
+        },
+        run,
+      )
+    : await run();
+
+  return {
+    ...repaired,
+    content: extractJsonObjectText(repaired.content) ?? repaired.content,
+  };
 }
 
 export class OpenAIProvider implements AIProvider {
@@ -229,7 +351,7 @@ export class OpenAIProvider implements AIProvider {
     imageDataUrl: string;
     prompt: string;
     jsonSchemaHint?: string;
-  }): Promise<string> {
+  }): Promise<ModelCompletion> {
     const { supportsJsonResponseFormat, maxTokensField } = getConfig();
     const systemParts = [
       "You are a careful visual analyst for photography. Respond with valid JSON only.",
@@ -259,10 +381,13 @@ export class OpenAIProvider implements AIProvider {
       ],
     });
 
-    return ensureJsonObject(raw, input.jsonSchemaHint ?? input.prompt);
+    if (extractJsonObjectText(raw.content)) {
+      return { ...raw, content: extractJsonObjectText(raw.content) ?? raw.content };
+    }
+    return repairJsonObject(raw.content, input.jsonSchemaHint ?? input.prompt);
   }
 
-  async generateText(input: { prompt: string; json?: boolean }): Promise<string> {
+  async generateText(input: { prompt: string; json?: boolean }): Promise<ModelCompletion> {
     const { supportsJsonResponseFormat, maxTokensField } = getConfig();
     const wantJson = Boolean(input.json);
 
@@ -283,7 +408,10 @@ export class OpenAIProvider implements AIProvider {
     });
 
     if (!wantJson) return raw;
-    return ensureJsonObject(raw, input.prompt);
+    if (extractJsonObjectText(raw.content)) {
+      return { ...raw, content: extractJsonObjectText(raw.content) ?? raw.content };
+    }
+    return repairJsonObject(raw.content, input.prompt);
   }
 }
 

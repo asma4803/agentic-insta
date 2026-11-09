@@ -1,0 +1,12 @@
+{
+  "id": "friendship",
+  "theme": "friendship",
+  "title": "Friendship",
+  "idea": "Company shown by what was shared: two cups, one table, no need to explain the conversation.",
+  "moods": ["funny", "casual", "inspirational"],
+  "hooks": [
+    "Two cups. The conversation can stay off camera.",
+    "Saved a seat without making a speech about it."
+  ],
+  "avoid": ["naming people who are not visible", "inventing a reunion story", "jokes that punch down"]
+}

@@ -1,0 +1,13 @@
+{
+  "handle": "frameandwords",
+  "displayName": "Frame & Words",
+  "niche": "Quiet everyday photographs and short reflections",
+  "audience": "People who save calm, personal posts",
+  "voice": "Warm, plain, specific. Short sentences. No slogans.",
+  "language": "English",
+  "themes": ["quiet-morning", "city-walk", "friendship", "small-wins"],
+  "captionLength": "short",
+  "alwaysHashtags": ["#frameandwords"],
+  "neverHashtags": ["#followforfollow"],
+  "avoid": ["product claims", "invented locations", "hard-sell CTAs"]
+}

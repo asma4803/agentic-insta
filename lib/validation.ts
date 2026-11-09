@@ -6,6 +6,10 @@ import {
   type CaptionStyle,
   type ContentStrategy,
   type GenerateResult,
+  type Mood,
+  type PostFormatRequest,
+  type ResolvedFormat,
+  type SlideDraft,
   type VisualAnalysis,
 } from "@/types/agent";
 
@@ -139,6 +143,131 @@ export function isCaptionStyle(value: string): value is CaptionStyle {
 
 export function isCaptionDirection(value: string): value is CaptionDirection {
   return (CAPTION_DIRECTIONS as readonly string[]).includes(value);
+}
+
+export function isMood(value: string): value is Mood {
+  return (
+    value === "inspirational" ||
+    value === "funny" ||
+    value === "reflective" ||
+    value === "motivational" ||
+    value === "casual"
+  );
+}
+
+export function isPostFormat(value: string): value is PostFormatRequest {
+  return value === "single" || value === "carousel" || value === "auto";
+}
+
+export function validateDraftRequest(raw: unknown): {
+  mood: Mood;
+  format: PostFormatRequest;
+  note: string;
+} {
+  if (!isRecord(raw)) {
+    throw new Error("invalid_request");
+  }
+
+  const mood = asString(raw.mood, "mood");
+  if (!isMood(mood)) {
+    throw new Error("invalid_field:mood");
+  }
+
+  const format = asString(raw.format, "format");
+  if (!isPostFormat(format)) {
+    throw new Error("invalid_field:format");
+  }
+
+  const note = typeof raw.note === "string" ? raw.note.trim().slice(0, 500) : "";
+  return { mood, format, note };
+}
+
+const TOOL_NAMES = [
+  "search_topics",
+  "search_images",
+  "inspect_image",
+  "draft_post",
+  "critique_post",
+  "finish",
+] as const;
+
+export type ToolName = (typeof TOOL_NAMES)[number];
+
+export interface ToolCall {
+  tool: ToolName;
+  arguments: Record<string, unknown>;
+}
+
+export function validateToolCall(raw: unknown): ToolCall {
+  if (!isRecord(raw)) {
+    throw new Error("invalid_tool_call");
+  }
+  const tool = asString(raw.tool, "tool");
+  if (!(TOOL_NAMES as readonly string[]).includes(tool)) {
+    throw new Error("invalid_field:tool");
+  }
+  const args = raw.arguments ?? raw.args ?? {};
+  if (!isRecord(args)) {
+    throw new Error("invalid_field:arguments");
+  }
+  return { tool: tool as ToolName, arguments: args };
+}
+
+export function validateImageInspection(raw: unknown): {
+  matchesDescription: boolean;
+  visibleDetails: string[];
+  notes: string;
+} {
+  if (!isRecord(raw)) {
+    throw new Error("invalid_inspection");
+  }
+  if (typeof raw.matches_description !== "boolean") {
+    throw new Error("invalid_field:matches_description");
+  }
+  const notes = typeof raw.notes === "string" ? raw.notes.trim() : "";
+  return {
+    matchesDescription: raw.matches_description,
+    visibleDetails: asStringArray(raw.visible_details, "visible_details"),
+    notes: notes || "No extra notes.",
+  };
+}
+
+export function validateWrittenPost(
+  raw: unknown,
+  imageIds: string[],
+): { caption: string; hashtags: string[]; slides: SlideDraft[] } {
+  if (!isRecord(raw)) {
+    throw new Error("invalid_written_post");
+  }
+
+  const caption = asString(raw.caption, "caption");
+  const hashtags = asStringArray(raw.hashtags, "hashtags", 1).map((tag) =>
+    tag.startsWith("#") ? tag : `#${tag.replace(/^#+/, "")}`,
+  );
+
+  if (!Array.isArray(raw.slides) || raw.slides.length !== imageIds.length) {
+    throw new Error("invalid_field:slides");
+  }
+
+  const slides = raw.slides.map((slide, index) => {
+    if (!isRecord(slide)) {
+      throw new Error(`invalid_field:slides[${index}]`);
+    }
+    const imageId = asString(slide.imageId, `slides[${index}].imageId`);
+    if (imageId !== imageIds[index]) {
+      throw new Error(`invalid_field:slides[${index}].imageId`);
+    }
+    return {
+      imageId,
+      text: asString(slide.text, `slides[${index}].text`),
+    };
+  });
+
+  return { caption, hashtags, slides };
+}
+
+export function isResolvedFormat(value: string): value is ResolvedFormat {
+  return value === "single" || value === "carousel";
 }
 
 export function validateVisualAnalysis(raw: unknown): VisualAnalysis {

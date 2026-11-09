@@ -1,0 +1,68 @@
+{
+  "images": [
+    {
+      "id": "cup-window",
+      "file": "cup-window.jpg",
+      "description": "A ceramic tea cup on a wooden windowsill, with rain on the glass and soft morning light.",
+      "themes": ["quiet-morning"],
+      "moods": ["reflective", "casual"],
+      "subjects": ["tea cup", "window", "rain"]
+    },
+    {
+      "id": "kettle-steam",
+      "file": "kettle-steam.jpg",
+      "description": "A small kettle on a stove with steam, in a quiet kitchen.",
+      "themes": ["quiet-morning"],
+      "moods": ["reflective", "inspirational"],
+      "subjects": ["kettle", "steam", "kitchen"]
+    },
+    {
+      "id": "window-chair",
+      "file": "window-chair.jpg",
+      "description": "An empty wooden chair beside a bright window and a linen curtain.",
+      "themes": ["quiet-morning"],
+      "moods": ["casual", "reflective"],
+      "subjects": ["chair", "window", "curtain"]
+    },
+    {
+      "id": "wet-pavement",
+      "file": "wet-pavement.jpg",
+      "description": "An empty wet city sidewalk after rain, with soft reflections.",
+      "themes": ["city-walk"],
+      "moods": ["reflective", "casual"],
+      "subjects": ["wet pavement", "sidewalk", "rain"]
+    },
+    {
+      "id": "dusk-crossing",
+      "file": "dusk-crossing.jpg",
+      "description": "A quiet crosswalk at dusk under warm streetlights.",
+      "themes": ["city-walk"],
+      "moods": ["reflective"],
+      "subjects": ["crosswalk", "streetlights", "dusk"]
+    },
+    {
+      "id": "alley-lamps",
+      "file": "alley-lamps.jpg",
+      "description": "A narrow alley with warm lamps and damp stone, no people.",
+      "themes": ["city-walk"],
+      "moods": ["reflective", "casual"],
+      "subjects": ["alley", "lamps", "stone"]
+    },
+    {
+      "id": "notebook-pen",
+      "file": "notebook-pen.jpg",
+      "description": "An open blank notebook and a pen on a wooden desk in morning light.",
+      "themes": ["small-wins"],
+      "moods": ["motivational", "inspirational", "casual"],
+      "subjects": ["notebook", "pen", "desk"]
+    },
+    {
+      "id": "two-cups",
+      "file": "two-cups.jpg",
+      "description": "Two coffee cups on a small wooden table.",
+      "themes": ["friendship"],
+      "moods": ["funny", "casual", "inspirational"],
+      "subjects": ["two cups", "table"]
+    }
+  ]
+}
